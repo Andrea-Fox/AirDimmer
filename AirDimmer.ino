@@ -73,6 +73,7 @@ int delayBetweenMeasurements = 50;
 
 bool update_raw_measurements = false;
 int currentBrightness = 0;  // Stores the current brightness from MQTT
+float lastChangeValue = 0;  // Stores the last change sent to HA
 // ***************************************************************
 // Webserver code
 
@@ -112,6 +113,38 @@ void handleToggleRawMeasurements() {
   update_raw_measurements = !update_raw_measurements;
   server.sendHeader("Location", "/");
   server.send(303);
+}
+
+void handleCalibrateThreshold() {
+  surface_distance = threshold_calibration();
+  Serial.print("New surface distance: ");
+  Serial.println(surface_distance);
+  server.sendHeader("Location", "/");
+  server.send(303);
+}
+
+void handleUpdateThresholds() {
+  if (server.hasArg("upper") && server.hasArg("lower")) {
+    float newUpper = server.arg("upper").toFloat();
+    float newLower = server.arg("lower").toFloat();
+    
+    // Validate values are in [0, 1] range
+    if (newUpper >= 0 && newUpper <= 1 && newLower >= 0 && newLower <= 1) {
+      upper_bound_threshold = newUpper;
+      lower_bound_threshold = newLower;
+      
+      Serial.print("Thresholds updated - Upper: ");
+      Serial.print(upper_bound_threshold);
+      Serial.print(", Lower: ");
+      Serial.println(lower_bound_threshold);
+      
+      server.send(200, "text/plain", "OK");
+    } else {
+      server.send(400, "text/plain", "Values must be between 0 and 1");
+    }
+  } else {
+    server.send(400, "text/plain", "Missing parameters");
+  }
 }
 
 // ****************************************************************
@@ -235,9 +268,12 @@ void handleDataRequest() {
     
     // Output
     json += "\"brightness\":" + String(currentBrightness) + ",";
+    json += "\"lastChange\":" + String(lastChangeValue) + ",";
     
     // Settings
     json += "\"update_raw_measurements\":" + String(update_raw_measurements ? "true" : "false") + ",";
+    json += "\"upper_threshold\":" + String(upper_bound_threshold, 3) + ",";
+    json += "\"lower_threshold\":" + String(lower_bound_threshold, 3) + ",";
     
     // Connectivity
     json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",";
@@ -313,6 +349,8 @@ void setup(void){
   server.on("/toggle/armed", handleToggleArmed);
   server.on("/toggle/debug", handleToggleDebug);
   server.on("/toggle/rawMeasurements", handleToggleRawMeasurements);
+  server.on("/calibrate/threshold", handleCalibrateThreshold);
+  server.on("/update/thresholds", handleUpdateThresholds);
 
   // Aggiungi questo nel tuo setup del server (dove hai server.on)
   
@@ -446,11 +484,17 @@ void loop(void)
     // stringaDifference.toCharArray(messageArray, stringaDifference.length() +1);
     if (difference  >=3 || difference <= -3){
       difference = min(max(difference, -20.0f), 20.0f);
-      client.publish(mqtt_serial_publish_brighness_change_ch, String(difference/2).c_str());
+      lastChangeValue = difference / 2;  // Store the change value
+      client.publish(mqtt_serial_publish_brighness_change_ch, String(lastChangeValue).c_str());
     }
     // client.publish(mqtt_serial_publish_brighness_change_ch, "Ciao");
     last_height = current_height;
 
+  }
+  
+  // Reset last change when hand is not detected
+  if (handDetected == false) {
+    lastChangeValue = 0;
   }
 
   if (update_raw_measurements == true){
