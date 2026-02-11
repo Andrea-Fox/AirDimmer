@@ -72,6 +72,7 @@ bool previousHandDetected = false;
 int delayBetweenMeasurements = 50;
 
 bool update_raw_measurements = false;
+int currentBrightness = 0;  // Stores the current brightness from MQTT
 // ***************************************************************
 // Webserver code
 
@@ -175,13 +176,28 @@ void callback(char* topic, byte *payload, unsigned int length) {
       {
         threshold_calibration();
       }
-      if (newPayload == "update_raw_measurements")
+      else if (newPayload == "update_raw_measurements")
       {
         update_raw_measurements = true;
       }
-      if (newPayload == "stop_update_raw_measurements")
+      else if (newPayload == "stop_update_raw_measurements")
       {
         update_raw_measurements = false;
+      }
+      else
+      {
+        // Try to parse as brightness value (0-255 from Home Assistant)
+        int brightnessValue = newPayload.toInt();
+        // Validate it's a reasonable brightness value (0-255 range)
+        if (brightnessValue >= 0 && brightnessValue <= 255)
+        {
+          // Normalize from 0-255 to 0-100
+          currentBrightness = (int)((brightnessValue / 255.0) * 100.0);
+          Serial.print("Brightness received: ");
+          Serial.print(brightnessValue);
+          Serial.print(" -> Normalized to: ");
+          Serial.println(currentBrightness);
+        }
       }
     }
 }
@@ -218,8 +234,7 @@ void handleDataRequest() {
     json += "\"hand\":" + String(handDetected ? "true" : "false") + ",";
     
     // Output
-    // Ensure currentBrightness is defined globally
-    json += "\"brightness\":" + String(0) + ",";
+    json += "\"brightness\":" + String(currentBrightness) + ",";
     
     // Settings
     json += "\"update_raw_measurements\":" + String(update_raw_measurements ? "true" : "false") + ",";
