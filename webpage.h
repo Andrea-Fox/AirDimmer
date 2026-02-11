@@ -19,6 +19,15 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 
     .indicator { height: 15px; width: 15px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-left: 10px; transition: 0.2s; }
     .indicator.active { background-color: #ff4757; box-shadow: 0 0 10px #ff4757; }
+    
+    /* Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #4caf50; }
+    input:checked + .slider:before { transform: translateX(26px); }
+    .slider:hover { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -39,11 +48,31 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     <div class="bar"><div class="bar-fill" id="bright-bar"></div></div>
   </div>
 
+  <div class="section">
+    <h3>Settings</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
+      <span class="label">Update Raw Measurements:</span>
+      <label class="switch">
+        <input type="checkbox" id="toggle-raw-measurements" onclick="toggleRawMeasurements()">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
   <button onclick="fetch('/control?cmd=toggleArmed')">Toggle Armed</button>
 </div>
 
 <script>
   let isFastPolling = false;
+
+  async function toggleRawMeasurements() {
+    try {
+      await fetch('/toggle/rawMeasurements');
+      // Update will happen on next poll
+    } catch (e) {
+      console.error("Error toggling raw measurements");
+    }
+  }
 
   async function updateLoop() {
     try {
@@ -72,12 +101,18 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
         isFastPolling = false;
       }
 
+      // 3. Update toggle state
+      const rawMeasToggle = document.getElementById('toggle-raw-measurements');
+      if (rawMeasToggle && data.update_raw_measurements !== undefined) {
+        rawMeasToggle.checked = (data.update_raw_measurements === true || data.update_raw_measurements === "true" || data.update_raw_measurements === 1);
+      }
+
     } catch (e) {
       console.error("Errore lettura dati");
       isFastPolling = false;
     }
 
-    // 3. Calcola prossimo intervallo: 50ms se mano c'è, 1000ms se non c'è
+    // 4. Calcola prossimo intervallo: 50ms se mano c'è, 1000ms se non c'è
     let nextCheck = isFastPolling ? 250 : 1000;
     setTimeout(updateLoop, nextCheck);
   }

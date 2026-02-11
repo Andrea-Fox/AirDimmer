@@ -107,7 +107,11 @@ void handleToggleDebug() {
   server.send(303);
 }
 
-
+void handleToggleRawMeasurements() {
+  update_raw_measurements = !update_raw_measurements;
+  server.sendHeader("Location", "/");
+  server.send(303);
+}
 
 // ****************************************************************
 
@@ -217,6 +221,9 @@ void handleDataRequest() {
     // Ensure currentBrightness is defined globally
     json += "\"brightness\":" + String(0) + ",";
     
+    // Settings
+    json += "\"update_raw_measurements\":" + String(update_raw_measurements ? "true" : "false") + ",";
+    
     // Connectivity
     json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",";
     // If you don't use MQTT, set this to false or remove it
@@ -290,6 +297,7 @@ void setup(void){
   server.on("/data.json", handleDataJSON);
   server.on("/toggle/armed", handleToggleArmed);
   server.on("/toggle/debug", handleToggleDebug);
+  server.on("/toggle/rawMeasurements", handleToggleRawMeasurements);
 
   // Aggiungi questo nel tuo setup del server (dove hai server.on)
   
