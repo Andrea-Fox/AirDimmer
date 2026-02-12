@@ -6,338 +6,393 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AirDimmer Dashboard</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; text-align: center; }
-    .container { background: white; padding: 20px; border-radius: 10px; shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-    .section { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; text-align: left; }
-    .label { font-weight: bold; }
-    .value { float: right; font-family: monospace; }
-    
-    .bar { width: 100%; height: 30px; background: #ddd; border-radius: 15px; margin-top: 10px; overflow: hidden; }
-    .bar-fill { height: 100%; background: #4caf50; width: 0%; transition: width 0.1s linear; }
-
-    .indicator { height: 15px; width: 15px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-left: 10px; transition: 0.2s; }
-    .indicator.active { background-color: #ff4757; box-shadow: 0 0 10px #ff4757; }
-    
-    /* Connection status badges */
-    .status-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
-    .status-badge.connected { background-color: #d4edda; color: #155724; }
-    .status-badge.disconnected { background-color: #f8d7da; color: #721c24; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .status-dot.connected { background-color: #28a745; }
-    .status-dot.disconnected { background-color: #dc3545; }
-    
-    /* Toggle Switch */
-    .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 24px; }
-    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; }
-    input:checked + .slider { background-color: #4caf50; }
-    input:checked + .slider:before { transform: translateX(26px); }
-    .slider:hover { opacity: 0.8; }
-    
-    /* Input fields */
-    input[type="number"] { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; transition: all 0.3s ease; }
-    input[type="number"].updated { 
-      border-color: #4caf50; 
-      background-color: #e8f5e9;
-      box-shadow: 0 0 12px rgba(76, 175, 80, 0.8); 
-      transform: scale(1.05);
+    :root {
+      /* Theme: Light (Default) */
+      --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      --card-bg: rgba(255, 255, 255, 0.7);
+      --card-border: rgba(255, 255, 255, 0.3);
+      --text-main: #2d3436;
+      --text-dim: #636e72;
+      --primary: #0984e3;
+      --primary-hover: #74b9ff;
+      --accent: #00b894;
+      --danger: #d63031;
+      --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+      --glass-blur: blur(12px);
     }
-    button.update-btn { padding: 8px 16px; background-color: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; margin-left: 10px; }
-    button.update-btn:hover { background-color: #45a049; }
-    .threshold-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+
+    [data-theme="dark"] {
+      --bg-gradient: linear-gradient(135deg, #1e272e 0%, #2f3640 50%, #1e272e 100%);
+      --card-bg: rgba(25, 25, 25, 0.4);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f5f6fa;
+      --text-dim: #a4b0be;
+      --primary: #ffb142;
+      --primary-hover: #ff9f43;
+      --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.7);
+    }
+
+    * { box-sizing: border-box; transition: all 0.3s ease; }
+    
+    body { 
+      font-family: 'Inter', -apple-system, sans-serif; 
+      margin: 0; min-height: 100vh;
+      background: var(--bg-gradient); 
+      background-attachment: fixed;
+      color: var(--text-main);
+      display: flex; justify-content: center; align-items: flex-start;
+      padding: 20px;
+    }
+
+    .container { 
+      width: 100%; max-width: 480px;
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    header { 
+      display: flex; flex-direction: column; align-items: center; 
+      margin-bottom: 30px; position: relative;
+    }
+
+    .controls-top {
+      position: absolute; top: 0; right: 0; display: flex; gap: 10px;
+    }
+
+    .icon-btn {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 12px; width: 40px; height: 40px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--text-main);
+    }
+    .icon-btn:hover { background: var(--primary); color: white; transform: translateY(-2px); }
+
+    h1 { margin: 10px 0; font-size: 26px; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .status-bar { display: flex; gap: 10px; margin-bottom: 25px; }
+    .status-badge { padding: 6px 14px; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 6px; letter-spacing: 0.5px; border: 1px solid transparent; }
+    .status-badge.connected { background: rgba(0, 184, 148, 0.15); color: #00b894; border-color: rgba(0, 184, 148, 0.2); }
+    .status-badge.disconnected { background: rgba(214, 48, 49, 0.15); color: #d63031; border-color: rgba(214, 48, 49, 0.2); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+
+    .card { background: rgba(255,255,255,0.05); border-radius: 18px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--card-border); }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .stat-row:last-child { margin-bottom: 0; }
+    .label { font-size: 14px; font-weight: 600; color: var(--text-dim); }
+    .value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--text-main); }
+    
+    .indicator { height: 12px; width: 12px; border-radius: 50%; background: #bbb; display: inline-block; margin-left: 8px; }
+    .indicator.active { background: var(--danger); box-shadow: 0 0 12px var(--danger); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    .progress-container { margin-top: 15px; }
+    .progress-label-bar { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; font-weight: 700; }
+    .bar-bg { width: 100%; height: 14px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; border-radius: 10px; }
+
+    h3 { font-size: 16px; margin: 0 0 15px 0; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+
+    /* Controls */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #dfe6e9; border-radius: 34px; border: 1px solid rgba(0,0,0,0.05); }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    input:checked + .slider { background: var(--primary); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    input[type="number"] { width: 100px; }
+    input[type="number"], input[type="text"] { 
+      background: rgba(0,0,0,0.05); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-main); padding: 6px 10px; font-family: monospace; outline: none; transition: 0.2s;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2); }
+
+    .btn { 
+      padding: 12px 20px; border-radius: 12px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(9, 132, 227, 0.3); }
+    .btn-danger { background: rgba(214, 48, 49, 0.1); color: var(--danger); border: 1px solid rgba(214, 48, 49, 0.2); }
+    .btn-danger:hover { background: var(--danger); color: white; }
+
+    .small-text { font-size: 12px; color: var(--text-dim); margin-top: 5px; }
+
+    /* Footer for language/credits */
+    footer { margin-top: 25px; font-size: 11px; color: var(--text-dim); font-weight: 600; opacity: 0.7; }
   </style>
 </head>
-<body>
+<body data-theme="light">
 
 <div class="container">
-  <h1>AirDimmer Dashboard</h1>
-  
-  <div class="status-bar">
-    <div id="wifi-status" class="status-badge disconnected">
-      <span class="status-dot disconnected"></span>
-      <span>WiFi</span>
+  <header>
+    <div class="controls-top">
+      <button class="icon-btn" onclick="toggleLanguage()" title="Switch Language" id="lang-toggle">🇮🇹</button>
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-icon">🌙</button>
     </div>
-    <div id="mqtt-status" class="status-badge disconnected">
-      <span class="status-dot disconnected"></span>
-      <span>MQTT</span>
+    <h1 id="t-title">AirDimmer</h1>
+    <div class="status-bar">
+      <div id="wifi-status" class="status-badge disconnected">
+        <div class="dot"></div><span>WiFi</span>
+      </div>
+      <div id="mqtt-status" class="status-badge disconnected">
+        <div class="dot"></div><span>MQTT</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Stats -->
+  <div class="card">
+    <div class="stat-row">
+      <span class="label" id="t-hand">Hand Detected</span>
+      <span class="value"><span id="hand-text">NO</span><span id="hand-indicator" class="indicator"></span></span>
+    </div>
+    <div class="stat-row">
+      <span class="label" id="t-raw">Raw Distance</span>
+      <span class="value"><span id="raw-dist">--</span> cm</span>
+    </div>
+    <div class="stat-row">
+      <span class="label" id="t-last-change">Last Change</span>
+      <span class="value" id="last-change">---</span>
+    </div>
+    
+    <div class="progress-container">
+      <div class="progress-label-bar">
+        <span id="t-brightness">Brightness</span>
+        <span id="bright-val">0%</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="bright-bar"></div></div>
     </div>
   </div>
 
-  <div class="section">
-    <p><span class="label">Hand Detected:</span> 
-       <span class="value"><span id="hand-text">NO</span><span id="hand-indicator" class="indicator"></span></span>
-    </p>
-    <p><span class="label">Raw Distance:</span> <span id="raw-dist" class="value">--</span> cm</p>
-    <p><span class="label">Last Change Sent:</span> <span id="last-change" class="value">---</span></p>
-  </div>
-
-  <div class="section">
-    <p><span class="label">Brightness:</span> <span id="bright-val" class="value">0</span>%</p>
-    <div class="bar"><div class="bar-fill" id="bright-bar"></div></div>
-  </div>
-
-  <div class="section">
-    <h3>Settings</h3>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
-      <span class="label">Armed (Enable Control):</span>
+  <!-- Settings -->
+  <div class="card">
+    <h3 id="t-settings">Settings</h3>
+    
+    <div class="stat-row">
+      <span class="label" id="t-armed">Enable Control (Armed)</span>
       <label class="switch">
         <input type="checkbox" id="toggle-armed" onclick="toggleArmed()">
         <span class="slider"></span>
       </label>
     </div>
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
-      <span class="label">Update Raw Measurements:</span>
+
+    <div class="stat-row">
+      <span class="label" id="t-update-raw">Update Raw Readings</span>
       <label class="switch">
         <input type="checkbox" id="toggle-raw-measurements" onclick="toggleRawMeasurements()">
         <span class="slider"></span>
       </label>
     </div>
-    
-    <div class="threshold-row">
-      <span class="label">Upper Threshold:</span>
-      <div>
-        <input type="number" id="upper-threshold" min="0" max="1" step="0.01" value="0.9" onchange="updateThresholds()">
-      </div>
+
+    <div class="stat-row" style="margin-top: 20px;">
+      <span class="label" id="t-upper">Upper Threshold</span>
+      <input type="number" id="upper-threshold" min="0" max="1" step="0.01" onchange="updateThresholds()">
     </div>
-    
-    <div class="threshold-row">
-      <span class="label">Lower Threshold:</span>
-      <div>
-        <input type="number" id="lower-threshold" min="0" max="1" step="0.01" value="0.1" onchange="updateThresholds()">
-      </div>
-    </div>
-    
-    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
-      <p style="margin: 5px 0;"><span class="label">Surface Distance:</span> <span id="surface-dist" class="value">--</span> cm</p>
+    <div class="stat-row">
+      <span class="label" id="t-lower">Lower Threshold</span>
+      <input type="number" id="lower-threshold" min="0" max="1" step="0.01" onchange="updateThresholds()">
     </div>
 
-    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
-      <h3>Device Name</h3>
-      <p style="font-size: 12px; color: #666; text-align: left;">Sets the address (e.g. <b>airdimmer-<span id="display-suffix">setup</span>.local</b>) and MQTT topics. Device will reboot.</p>
-      <div class="threshold-row">
-        <span class="label">airdimmer-</span>
-        <div style="display: flex; gap: 5px;">
-          <input type="text" id="device-suffix" style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;" maxlength="30">
-          <button onclick="updateHostname()" class="update-btn" style="background-color: #f44336; margin-left: 0;">Save</button>
-        </div>
+    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--card-border);">
+      <div class="stat-row">
+        <span class="label" id="t-surface">Surface Distance</span>
+        <span class="value"><span id="surface-dist">--</span> cm</span>
       </div>
+      <button class="btn btn-primary" onclick="calibrateThreshold()" style="margin-top: 10px;">
+        <span id="t-recalibrate">Recalibrate Distance</span>
+      </button>
     </div>
   </div>
 
-  <div class="section">
-    <h3>Actions</h3>
-    <button onclick="calibrateThreshold()" style="width: 100%; padding: 10px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-bottom: 10px;">Recalibrate Distance Threshold</button>
+  <!-- Device Config -->
+  <div class="card">
+    <h3 id="t-dev-name">Device Name</h3>
+    <p class="small-text" id="t-dev-help">Sets your .local address and MQTT topics.</p>
+    <div class="stat-row" style="margin-top: 10px;">
+      <span class="label">airdimmer-</span>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="device-suffix" maxlength="30" style="width: 100px;">
+        <button onclick="updateHostname()" class="btn btn-danger" style="width: auto; padding: 6px 12px; font-size: 12px;">Save</button>
+      </div>
+    </div>
+    <p class="small-text">Address: <b id="full-address">airdimmer-setup.local</b></p>
   </div>
+
+  <center><footer>AirDimmer v1.0 • 2026</footer></center>
 </div>
 
 <script>
+  let currentLang = localStorage.getItem('lang') || 'en';
+  let currentTheme = localStorage.getItem('theme') || 'light';
   let isFastPolling = false;
 
-  async function toggleArmed() {
-    try {
-      await fetch('/toggle/armed');
-      // Update will happen on next poll
-    } catch (e) {
-      console.error("Error toggling armed state");
+  const translations = {
+    en: {
+      title: "AirDimmer",
+      hand: "Hand Detected",
+      raw: "Current Distance",
+      lastChange: "Last Change Sent",
+      brightness: "Brightness",
+      settings: "Settings",
+      armed: "Enable Control (Armed)",
+      updateRaw: "Send updated measurements",
+      upper: "Upper Threshold",
+      lower: "Lower Threshold",
+      surface: "Surface Distance",
+      recalibrate: "Recalibrate Distance",
+      devName: "Device Name",
+      devHelp: "Sets your .local address and MQTT topics. Device will reboot.",
+      rebootPrompt: "Device will rename and reboot. Continue?",
+      calPrompt: "Recalibrate distance? Make sure nothing is near the sensor.",
+      waitMsg: "Saving and rebooting... Please wait.",
+      langKey: "🇮🇹"
+    },
+    it: {
+      title: "AirDimmer",
+      hand: "Mano Rilevata",
+      raw: "Distanza attuale",
+      lastChange: "Ultimo Cambio",
+      brightness: "Luminosità",
+      settings: "Impostazioni",
+      armed: "Abilita Controllo",
+      updateRaw: "Invia aggiornamenti letture",
+      upper: "Soglia Superiore",
+      lower: "Soglia Inferiore",
+      surface: "Distanza Superficie",
+      recalibrate: "Ricalibra Distanza",
+      devName: "Nome Dispositivo",
+      devHelp: "Imposta l'indirizzo .local e i topic MQTT. Il dispositivo si riavvierà.",
+      rebootPrompt: "Il dispositivo cambierà nome e si riavvierà. Continuare?",
+      calPrompt: "Ricalibrare la distanza? Assicurati che non ci sia nulla vicino al sensore.",
+      waitMsg: "Salvataggio e riavvio... Attendere.",
+      langKey: "🇬🇧"
     }
-  }
+  };
 
-  async function toggleRawMeasurements() {
-    try {
-      await fetch('/toggle/rawMeasurements');
-      // Update will happen on next poll
-    } catch (e) {
-      console.error("Error toggling raw measurements");
-    }
-  }
-
-  async function updateHostname() {
-    const suffix = document.getElementById('device-suffix').value;
-    if (!suffix) return;
+  function updateUI() {
+    const t = translations[currentLang];
+    document.getElementById('t-title').innerText = t.title;
+    document.getElementById('t-hand').innerText = t.hand;
+    document.getElementById('t-raw').innerText = t.raw;
+    document.getElementById('t-last-change').innerText = t.lastChange;
+    document.getElementById('t-brightness').innerText = t.brightness;
+    document.getElementById('t-settings').innerText = t.settings;
+    document.getElementById('t-armed').innerText = t.armed;
+    document.getElementById('t-update-raw').innerText = t.updateRaw;
+    document.getElementById('t-upper').innerText = t.upper;
+    document.getElementById('t-lower').innerText = t.lower;
+    document.getElementById('t-surface').innerText = t.surface;
+    document.getElementById('t-recalibrate').innerText = t.recalibrate;
+    document.getElementById('t-dev-name').innerText = t.devName;
+    document.getElementById('t-dev-help').innerText = t.devHelp;
+    document.getElementById('lang-toggle').innerText = t.langKey;
     
-    if (confirm(`Device will rename to airdimmer-${suffix}.local and reboot. Continue?`)) {
-      try {
-        await fetch(`/update/hostname?suffix=${suffix}`);
-        alert("Settings saved. Device is rebooting. Please wait 10 seconds and then try to reach it at the new address.");
-      } catch (e) {
-        console.error("Error updating hostname");
-      }
-    }
+    document.body.setAttribute('data-theme', currentTheme);
+    document.getElementById('theme-icon').innerText = currentTheme === 'light' ? '🌙' : '☀️';
   }
+
+  function toggleLanguage() {
+    currentLang = currentLang === 'en' ? 'it' : 'en';
+    localStorage.setItem('lang', currentLang);
+    updateUI();
+  }
+
+  function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('theme', currentTheme);
+    updateUI();
+  }
+
+  async function toggleArmed() { try { await fetch('/toggle/armed'); } catch (e) {} }
+  async function toggleRawMeasurements() { try { await fetch('/toggle/rawMeasurements'); } catch (e) {} }
 
   async function calibrateThreshold() {
-    if (confirm("This will recalibrate the distance threshold. Make sure no hand is near the sensor. Continue?")) {
-      try {
-        await fetch('/calibrate/threshold');
-        alert("Calibration started. Please wait...");
-      } catch (e) {
-        console.error("Error calibrating threshold");
-        alert("Error starting calibration");
-      }
+    if (confirm(translations[currentLang].calPrompt)) {
+      try { await fetch('/calibrate/threshold'); alert("Calibration started..."); } catch (e) {}
     }
   }
 
   async function updateThresholds() {
-    const upperVal = parseFloat(document.getElementById('upper-threshold').value);
-    const lowerVal = parseFloat(document.getElementById('lower-threshold').value);
-    
-    // Validate values are in [0, 1] range
-    if (isNaN(upperVal) || isNaN(lowerVal) || upperVal < 0 || upperVal > 1 || lowerVal < 0 || lowerVal > 1) {
-      console.error("Threshold values must be between 0 and 1");
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/update/thresholds?upper=${upperVal}&lower=${lowerVal}`);
-      if (response.ok) {
-        console.log("Thresholds updated successfully");
-        // Visual feedback - flash green
-        showUpdateFeedback();
-      } else {
-        const errorText = await response.text();
-        console.error("Error updating thresholds: " + errorText);
-      }
-    } catch (e) {
-      console.error("Error updating thresholds", e);
+    const upper = parseFloat(document.getElementById('upper-threshold').value);
+    const lower = parseFloat(document.getElementById('lower-threshold').value);
+    if (!isNaN(upper) && !isNaN(lower)) {
+      try { await fetch(`/update/thresholds?upper=${upper}&lower=${lower}`); } catch (e) {}
     }
   }
 
-  function showUpdateFeedback() {
-    const upperInput = document.getElementById('upper-threshold');
-    const lowerInput = document.getElementById('lower-threshold');
-    
-    // Add updated class for visual feedback
-    upperInput.classList.add('updated');
-    lowerInput.classList.add('updated');
-    
-    // Remove after animation
-    setTimeout(() => {
-      upperInput.classList.remove('updated');
-      lowerInput.classList.remove('updated');
-    }, 1000);
+  async function updateHostname() {
+    const suffix = document.getElementById('device-suffix').value.trim();
+    if (suffix && confirm(translations[currentLang].rebootPrompt)) {
+      try { await fetch(`/update/hostname?suffix=${suffix}`); alert(translations[currentLang].waitMsg); } catch (e) {}
+    }
   }
 
-  function updateConnectionStatus(wifiConnected, mqttConnected) {
-    const wifiStatus = document.getElementById('wifi-status');
-    const mqttStatus = document.getElementById('mqtt-status');
-    
-    // Update WiFi status
-    if (wifiConnected) {
-      wifiStatus.className = 'status-badge connected';
-      wifiStatus.innerHTML = '<span class="status-dot connected"></span><span>WiFi</span>';
-    } else {
-      wifiStatus.className = 'status-badge disconnected';
-      wifiStatus.innerHTML = '<span class="status-dot disconnected"></span><span>WiFi</span>';
-    }
-    
-    // Update MQTT status
-    if (mqttConnected) {
-      mqttStatus.className = 'status-badge connected';
-      mqttStatus.innerHTML = '<span class="status-dot connected"></span><span>MQTT</span>';
-    } else {
-      mqttStatus.className = 'status-badge disconnected';
-      mqttStatus.innerHTML = '<span class="status-dot disconnected"></span><span>MQTT</span>';
-    }
+  function updateConnectionStatus(wifi, mqtt) {
+    const w = document.getElementById('wifi-status');
+    const m = document.getElementById('mqtt-status');
+    w.className = 'status-badge ' + (wifi ? 'connected' : 'disconnected');
+    m.className = 'status-badge ' + (mqtt ? 'connected' : 'disconnected');
   }
 
   async function updateLoop() {
     try {
-      const response = await fetch('/readData');
-      const data = await response.json();
+      const resp = await fetch('/readData');
+      const data = await resp.json();
 
-      // 1. Update distance values
       document.getElementById('raw-dist').innerText = data.raw ? data.raw.toFixed(1) : "--";
-      document.getElementById('bright-val').innerText = data.brightness || 0;
+      document.getElementById('bright-val').innerText = (data.brightness || 0) + "%";
       document.getElementById('bright-bar').style.width = (data.brightness || 0) + '%';
 
-      // 2. Hand detection
       const isHand = (data.hand === true || data.hand === "true" || data.hand === 1);
+      document.getElementById('hand-text').innerText = isHand ? (currentLang === 'it' ? "SI" : "YES") : "NO";
+      document.getElementById('hand-indicator').className = 'indicator ' + (isHand ? 'active' : '');
       
-      const handText = document.getElementById('hand-text');
-      const handInd = document.getElementById('hand-indicator');
-      const lastChangeVal = document.getElementById('last-change');
-
-      if (isHand) {
-        handText.innerText = "YES";
-        handInd.classList.add('active');
-        isFastPolling = true;
-        
-        // Show last change value if available
-        if (data.lastChange && data.lastChange !== 0) {
-          lastChangeVal.innerText = (data.lastChange > 0 ? "+" : "") + data.lastChange.toFixed(1);
-        } else {
-          lastChangeVal.innerText = "---";
-        }
+      const lastChange = document.getElementById('last-change');
+      if (isHand && data.lastChange) {
+        lastChange.innerText = (data.lastChange > 0 ? "+" : "") + data.lastChange.toFixed(1);
       } else {
-        handText.innerText = "NO";
-        handInd.classList.remove('active');
-        isFastPolling = false;
-        lastChangeVal.innerText = "---";  // Show --- when no hand
+        lastChange.innerText = "---";
       }
 
-      // 3. Update toggle state and threshold values
-      const rawMeasToggle = document.getElementById('toggle-raw-measurements');
-      if (rawMeasToggle && data.update_raw_measurements !== undefined) {
-        rawMeasToggle.checked = (data.update_raw_measurements === true || data.update_raw_measurements === "true" || data.update_raw_measurements === 1);
-      }
+      // Sync settings
+      document.getElementById('toggle-armed').checked = !!data.armed;
+      document.getElementById('toggle-raw-measurements').checked = !!data.update_raw_measurements;
       
-      // Update threshold input fields
-      if (data.upper_threshold !== undefined) {
-        document.getElementById('upper-threshold').value = parseFloat(data.upper_threshold).toFixed(2);
-      }
-      if (data.lower_threshold !== undefined) {
-        document.getElementById('lower-threshold').value = parseFloat(data.lower_threshold).toFixed(2);
-      }
+      if (document.activeElement !== document.getElementById('upper-threshold')) 
+        document.getElementById('upper-threshold').value = data.upper_threshold.toFixed(2);
+      if (document.activeElement !== document.getElementById('lower-threshold')) 
+        document.getElementById('lower-threshold').value = data.lower_threshold.toFixed(2);
       
-      // Update armed toggle state
-      const armedToggle = document.getElementById('toggle-armed');
-      if (armedToggle && data.armed !== undefined) {
-        armedToggle.checked = (data.armed === true || data.armed === "true" || data.armed === 1);
-      }
+      document.getElementById('surface-dist').innerText = data.surface_distance.toFixed(1);
       
-      // Update surface distance display
-      if (data.surface_distance !== undefined) {
-        document.getElementById('surface-dist').innerText = parseFloat(data.surface_distance).toFixed(1);
-      }
+      if (document.activeElement !== document.getElementById('device-suffix')) 
+        document.getElementById('device-suffix').value = data.device_suffix;
       
-      // Update hostname display
-      if (data.device_suffix !== undefined) {
-        document.getElementById('display-suffix').innerText = data.device_suffix;
-        // Only update input if user isn't typing
-        if (document.activeElement !== document.getElementById('device-suffix')) {
-          document.getElementById('device-suffix').value = data.device_suffix;
-        }
-      }
-      
-      // Update title with hostname
-      if (data.full_hostname) {
-        document.title = data.full_hostname + " Dashboard";
-      }
-      // 4. Update connection status
-      const wifiConnected = (data.wifi_connected == 1 || data.wifi_connected === true || data.wifi_connected === "true");
-      const mqttConnected = (data.mqtt_connected == 1 || data.mqtt_connected === true || data.mqtt_connected === "true");
-      updateConnectionStatus(wifiConnected, mqttConnected);
+      document.getElementById('full-address').innerText = data.full_hostname;
+
+      updateConnectionStatus(data.wifi_connected == 1, data.mqtt_connected == 1);
+      isFastPolling = isHand;
 
     } catch (e) {
-      console.error("Error reading data", e);
       isFastPolling = false;
     } finally {
-      // 5. Always schedule next poll even on error
-      let nextCheck = isFastPolling ? 250 : 1000;
-      setTimeout(updateLoop, nextCheck);
+      setTimeout(updateLoop, isFastPolling ? 250 : 1000);
     }
   }
 
-  // Start
+  updateUI();
   updateLoop();
 </script>
 </body>
 </html>
 )rawliteral";
+
 
 #endif

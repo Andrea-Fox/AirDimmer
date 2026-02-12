@@ -441,6 +441,7 @@ void setup(void){
   if (MDNS.begin(fullHostname)) {
     Serial.println("MDNS responder started");
     MDNS.addService("http", "tcp", 80);
+    MDNS.addService("arduino", "tcp", 3232); // Explicitly advertise OTA port
   }
 
   Serial.println("Ready");
