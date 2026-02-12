@@ -125,7 +125,9 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     .small-text { font-size: 12px; color: var(--text-dim); margin-top: 5px; }
 
     /* Footer for language/credits */
-    footer { margin-top: 25px; font-size: 11px; color: var(--text-dim); font-weight: 600; opacity: 0.7; }
+    footer { margin-top: 25px; font-size: 11px; color: var(--text-dim); font-weight: 600; opacity: 0.8; line-height: 1.6; }
+    footer a { color: var(--text-dim); text-decoration: none; border-bottom: 1px solid transparent; }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
   </style>
 </head>
 <body data-theme="light">
@@ -225,7 +227,11 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     <p class="small-text">Address: <b id="full-address">airdimmer-setup.local</b></p>
   </div>
 
-  <center><footer>AirDimmer v1.0 • 2026</footer></center>
+  <center><footer>
+    AirDimmer v1.0 • 2026<br>
+    <a href="https://github.com/Andrea-Fox/AirDimmer" target="_blank" id="t-github">GitHub</a> • 
+    <span id="t-credits">Created by Andrea Fox</span>
+  </footer></center>
 </div>
 
 <script>
@@ -252,6 +258,8 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       rebootPrompt: "Device will rename and reboot. Continue?",
       calPrompt: "Recalibrate distance? Make sure nothing is near the sensor.",
       waitMsg: "Saving and rebooting... Please wait.",
+      github: "GitHub",
+      credits: "Created by Andrea Fox",
       langKey: "🇮🇹"
     },
     it: {
@@ -272,6 +280,8 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       rebootPrompt: "Il dispositivo cambierà nome e si riavvierà. Continuare?",
       calPrompt: "Ricalibrare la distanza? Assicurati che non ci sia nulla vicino al sensore.",
       waitMsg: "Salvataggio e riavvio... Attendere.",
+      github: "GitHub",
+      credits: "Creato da Andrea Fox",
       langKey: "🇬🇧"
     }
   };
@@ -292,6 +302,8 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     document.getElementById('t-recalibrate').innerText = t.recalibrate;
     document.getElementById('t-dev-name').innerText = t.devName;
     document.getElementById('t-dev-help').innerText = t.devHelp;
+    document.getElementById('t-github').innerText = t.github;
+    document.getElementById('t-credits').innerText = t.credits;
     document.getElementById('lang-toggle').innerText = t.langKey;
     
     document.body.setAttribute('data-theme', currentTheme);
