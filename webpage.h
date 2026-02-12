@@ -20,6 +20,15 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     .indicator { height: 15px; width: 15px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-left: 10px; transition: 0.2s; }
     .indicator.active { background-color: #ff4757; box-shadow: 0 0 10px #ff4757; }
     
+    /* Connection status badges */
+    .status-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+    .status-badge.connected { background-color: #d4edda; color: #155724; }
+    .status-badge.disconnected { background-color: #f8d7da; color: #721c24; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.connected { background-color: #28a745; }
+    .status-dot.disconnected { background-color: #dc3545; }
+    
     /* Toggle Switch */
     .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -30,7 +39,13 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     .slider:hover { opacity: 0.8; }
     
     /* Input fields */
-    input[type="number"] { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+    input[type="number"] { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; transition: all 0.3s ease; }
+    input[type="number"].updated { 
+      border-color: #4caf50; 
+      background-color: #e8f5e9;
+      box-shadow: 0 0 12px rgba(76, 175, 80, 0.8); 
+      transform: scale(1.05);
+    }
     button.update-btn { padding: 8px 16px; background-color: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; margin-left: 10px; }
     button.update-btn:hover { background-color: #45a049; }
     .threshold-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
@@ -40,6 +55,17 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 
 <div class="container">
   <h1>AirDimmer Dashboard</h1>
+  
+  <div class="status-bar">
+    <div id="wifi-status" class="status-badge disconnected">
+      <span class="status-dot disconnected"></span>
+      <span>WiFi</span>
+    </div>
+    <div id="mqtt-status" class="status-badge disconnected">
+      <span class="status-dot disconnected"></span>
+      <span>MQTT</span>
+    </div>
+  </div>
 
   <div class="section">
     <p><span class="label">Hand Detected:</span> 
@@ -56,6 +82,14 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 
   <div class="section">
     <h3>Settings</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
+      <span class="label">Armed (Enable Control):</span>
+      <label class="switch">
+        <input type="checkbox" id="toggle-armed" onclick="toggleArmed()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0;">
       <span class="label">Update Raw Measurements:</span>
       <label class="switch">
@@ -77,6 +111,10 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
         <input type="number" id="lower-threshold" min="0" max="1" step="0.01" value="0.1" onchange="updateThresholds()">
       </div>
     </div>
+    
+    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+      <p style="margin: 5px 0;"><span class="label">Surface Distance:</span> <span id="surface-dist" class="value">--</span> cm</p>
+    </div>
   </div>
 
   <div class="section">
@@ -87,6 +125,15 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 
 <script>
   let isFastPolling = false;
+
+  async function toggleArmed() {
+    try {
+      await fetch('/toggle/armed');
+      // Update will happen on next poll
+    } catch (e) {
+      console.error("Error toggling armed state");
+    }
+  }
 
   async function toggleRawMeasurements() {
     try {
@@ -123,12 +170,52 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       const response = await fetch(`/update/thresholds?upper=${upperVal}&lower=${lowerVal}`);
       if (response.ok) {
         console.log("Thresholds updated successfully");
+        // Visual feedback - flash green
+        showUpdateFeedback();
       } else {
         const errorText = await response.text();
         console.error("Error updating thresholds: " + errorText);
       }
     } catch (e) {
       console.error("Error updating thresholds", e);
+    }
+  }
+
+  function showUpdateFeedback() {
+    const upperInput = document.getElementById('upper-threshold');
+    const lowerInput = document.getElementById('lower-threshold');
+    
+    // Add updated class for visual feedback
+    upperInput.classList.add('updated');
+    lowerInput.classList.add('updated');
+    
+    // Remove after animation
+    setTimeout(() => {
+      upperInput.classList.remove('updated');
+      lowerInput.classList.remove('updated');
+    }, 1000);
+  }
+
+  function updateConnectionStatus(wifiConnected, mqttConnected) {
+    const wifiStatus = document.getElementById('wifi-status');
+    const mqttStatus = document.getElementById('mqtt-status');
+    
+    // Update WiFi status
+    if (wifiConnected) {
+      wifiStatus.className = 'status-badge connected';
+      wifiStatus.innerHTML = '<span class="status-dot connected"></span><span>WiFi</span>';
+    } else {
+      wifiStatus.className = 'status-badge disconnected';
+      wifiStatus.innerHTML = '<span class="status-dot disconnected"></span><span>WiFi</span>';
+    }
+    
+    // Update MQTT status
+    if (mqttConnected) {
+      mqttStatus.className = 'status-badge connected';
+      mqttStatus.innerHTML = '<span class="status-dot connected"></span><span>MQTT</span>';
+    } else {
+      mqttStatus.className = 'status-badge disconnected';
+      mqttStatus.innerHTML = '<span class="status-dot disconnected"></span><span>MQTT</span>';
     }
   }
 
@@ -180,15 +267,30 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       if (data.lower_threshold !== undefined) {
         document.getElementById('lower-threshold').value = parseFloat(data.lower_threshold).toFixed(2);
       }
+      
+      // Update armed toggle state
+      const armedToggle = document.getElementById('toggle-armed');
+      if (armedToggle && data.armed !== undefined) {
+        armedToggle.checked = (data.armed === true || data.armed === "true" || data.armed === 1);
+      }
+      
+      // Update surface distance display
+      if (data.surface_distance !== undefined) {
+        document.getElementById('surface-dist').innerText = parseFloat(data.surface_distance).toFixed(1);
+      }
+      // 4. Update connection status
+      const wifiConnected = (data.wifi_connected == 1 || data.wifi_connected === true || data.wifi_connected === "true");
+      const mqttConnected = (data.mqtt_connected == 1 || data.mqtt_connected === true || data.mqtt_connected === "true");
+      updateConnectionStatus(wifiConnected, mqttConnected);
 
     } catch (e) {
-      console.error("Error reading data");
+      console.error("Error reading data", e);
       isFastPolling = false;
+    } finally {
+      // 5. Always schedule next poll even on error
+      let nextCheck = isFastPolling ? 250 : 1000;
+      setTimeout(updateLoop, nextCheck);
     }
-
-    // 4. Calculate next interval: 250ms if hand detected, 1000ms otherwise
-    let nextCheck = isFastPolling ? 250 : 1000;
-    setTimeout(updateLoop, nextCheck);
   }
 
   // Start

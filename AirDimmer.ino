@@ -35,7 +35,17 @@ int mqtt_publish_brightness_change = sprintf(mqtt_serial_publish_brightness_cach
 const PROGMEM char* mqtt_serial_publish_brighness_change_ch = mqtt_serial_publish_brightness_cache;
 
 
-#define EEPROM_SIZE 8
+#define EEPROM_SIZE 64  // Increased to store all configuration
+
+// EEPROM Memory Map
+#define EEPROM_MAGIC_ADDR 0        // 4 bytes - magic number to detect first boot
+#define EEPROM_SURFACE_DIST_ADDR 4 // 4 bytes - float surface_distance
+#define EEPROM_UPPER_THRESH_ADDR 8 // 4 bytes - float upper_bound_threshold
+#define EEPROM_LOWER_THRESH_ADDR 12 // 4 bytes - float lower_bound_threshold
+#define EEPROM_ARMED_ADDR 16       // 1 byte - bool armed
+#define EEPROM_UPDATE_RAW_ADDR 17  // 1 byte - bool update_raw_measurements
+
+#define EEPROM_MAGIC_NUMBER 0xAD12  // Magic number to detect if EEPROM has been initialized
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -99,6 +109,7 @@ void handleDataJSON() {
 
 void handleToggleArmed() {
   armed = !armed;
+  saveConfigToEEPROM();  // Save to EEPROM when changed
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -111,6 +122,7 @@ void handleToggleDebug() {
 
 void handleToggleRawMeasurements() {
   update_raw_measurements = !update_raw_measurements;
+  saveConfigToEEPROM();  // Save to EEPROM when changed
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -119,6 +131,7 @@ void handleCalibrateThreshold() {
   surface_distance = threshold_calibration();
   Serial.print("New surface distance: ");
   Serial.println(surface_distance);
+  saveConfigToEEPROM();  // Save to EEPROM after calibration
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -138,12 +151,56 @@ void handleUpdateThresholds() {
       Serial.print(", Lower: ");
       Serial.println(lower_bound_threshold);
       
+      saveConfigToEEPROM();  // Save to EEPROM when changed
       server.send(200, "text/plain", "OK");
     } else {
       server.send(400, "text/plain", "Values must be between 0 and 1");
     }
   } else {
     server.send(400, "text/plain", "Missing parameters");
+  }
+}
+
+// ****************************************************************
+// EEPROM Functions
+
+void saveConfigToEEPROM() {
+  EEPROM.writeUInt(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_NUMBER);
+  EEPROM.writeFloat(EEPROM_SURFACE_DIST_ADDR, surface_distance);
+  EEPROM.writeFloat(EEPROM_UPPER_THRESH_ADDR, upper_bound_threshold);
+  EEPROM.writeFloat(EEPROM_LOWER_THRESH_ADDR, lower_bound_threshold);
+  EEPROM.writeBool(EEPROM_ARMED_ADDR, armed);
+  EEPROM.writeBool(EEPROM_UPDATE_RAW_ADDR, update_raw_measurements);
+  EEPROM.commit();
+  Serial.println("Configuration saved to EEPROM");
+}
+
+void loadConfigFromEEPROM() {
+  uint32_t magic = EEPROM.readUInt(EEPROM_MAGIC_ADDR);
+  
+  if (magic == EEPROM_MAGIC_NUMBER) {
+    // Valid configuration exists, load it
+    surface_distance = EEPROM.readFloat(EEPROM_SURFACE_DIST_ADDR);
+    upper_bound_threshold = EEPROM.readFloat(EEPROM_UPPER_THRESH_ADDR);
+    lower_bound_threshold = EEPROM.readFloat(EEPROM_LOWER_THRESH_ADDR);
+    armed = EEPROM.readBool(EEPROM_ARMED_ADDR);
+    update_raw_measurements = EEPROM.readBool(EEPROM_UPDATE_RAW_ADDR);
+    
+    Serial.println("Configuration loaded from EEPROM:");
+    Serial.print("  Surface distance: "); Serial.println(surface_distance);
+    Serial.print("  Upper threshold: "); Serial.println(upper_bound_threshold);
+    Serial.print("  Lower threshold: "); Serial.println(lower_bound_threshold);
+    Serial.print("  Armed: "); Serial.println(armed ? "true" : "false");
+    Serial.print("  Update raw: "); Serial.println(update_raw_measurements ? "true" : "false");
+  } else {
+    // First boot or invalid data, use defaults and save them
+    Serial.println("No valid configuration found, using defaults");
+    surface_distance = 100.0;  // Default value, will be calibrated
+    upper_bound_threshold = 0.9;
+    lower_bound_threshold = 0.1;
+    armed = true;  // Default to true so it works out of the box
+    update_raw_measurements = false;
+    saveConfigToEEPROM();
   }
 }
 
@@ -256,33 +313,39 @@ void reconnect() {
   }
 }
 
+// Helper to safely format floats for JSON
+String safeJsonFloat(float val, int precision = 2) {
+  if (isnan(val) || isinf(val)) return "0.0";
+  return String(val, precision);
+}
+
 void handleDataRequest() {
     String json = "{";
     // Sensor Data
     json += "\"raw\":" + String(last_N_measurements[last_measurement_index]) + ",";
     // Calculate average safely
     float avg = (N_measurements > 0) ? (running_sum / N_measurements) : 0;
-    json += "\"filtered\":" + String(avg) + ",";
+    json += "\"filtered\":" + safeJsonFloat(avg, 1) + ",";
     
     json += "\"hand\":" + String(handDetected ? "true" : "false") + ",";
     
     // Output
     json += "\"brightness\":" + String(currentBrightness) + ",";
-    json += "\"lastChange\":" + String(lastChangeValue) + ",";
+    json += "\"lastChange\":" + safeJsonFloat(lastChangeValue, 1) + ",";
     
     // Settings
+    json += "\"armed\":" + String(armed ? "true" : "false") + ",";
     json += "\"update_raw_measurements\":" + String(update_raw_measurements ? "true" : "false") + ",";
-    json += "\"upper_threshold\":" + String(upper_bound_threshold, 3) + ",";
-    json += "\"lower_threshold\":" + String(lower_bound_threshold, 3) + ",";
+    json += "\"upper_threshold\":" + safeJsonFloat(upper_bound_threshold, 3) + ",";
+    json += "\"lower_threshold\":" + safeJsonFloat(lower_bound_threshold, 3) + ",";
+    json += "\"surface_distance\":" + safeJsonFloat(surface_distance, 1) + ",";
     
-    // Connectivity
-    json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",";
-    // If you don't use MQTT, set this to false or remove it
-    json += "\"mqtt_connected\":" + String("false"); 
+    // Connectivity - Use 1/0 for absolute robustness in JS
+    json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? 1 : 0) + ",";
+    json += "\"mqtt_connected\":" + String(client.connected() ? 1 : 0); 
     
     json += "}";
     
-    // KEY CHANGE: Use server.send instead of request->send
     server.send(200, "application/json", json);
 }
 
@@ -338,28 +401,17 @@ void setup(void){
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  setup_wifi();
-
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
 
+
   server.on("/", handleRoot);
-  server.on("/data.json", handleDataJSON);
   server.on("/toggle/armed", handleToggleArmed);
   server.on("/toggle/debug", handleToggleDebug);
   server.on("/toggle/rawMeasurements", handleToggleRawMeasurements);
   server.on("/calibrate/threshold", handleCalibrateThreshold);
   server.on("/update/thresholds", handleUpdateThresholds);
-
-  // Aggiungi questo nel tuo setup del server (dove hai server.on)
-  
-
-  server.on("/", []() {
-    server.send(250, "text/html", webpageHTML);
-  });
-
-  // 2. Serve the data for the JavaScript fetch
   server.on("/readData", handleDataRequest);
 
   server.begin();
@@ -367,14 +419,22 @@ void setup(void){
 
 
 
-  // Here we should have the initialization function
-  surface_distance = threshold_calibration();
+
+  // Load configuration from EEPROM
+  loadConfigFromEEPROM();
+  
+  // If surface_distance is invalid or this is first boot, calibrate
+  if (surface_distance <= 0 || surface_distance > 400) {
+    Serial.println("Invalid surface distance, performing calibration...");
+    surface_distance = threshold_calibration();
+    saveConfigToEEPROM();
+  }
+  
   Serial.print("Surface distance: ");
   Serial.println(surface_distance);
 
-
   // initialization of the last_N_measurement vector
-  for(int i; i<N_measurements; i++){
+  for(int i=0; i<N_measurements; i++){  
     last_N_measurements[i] = 0;
   }
 
@@ -456,7 +516,7 @@ void loop(void)
     initial_height = distance;
     last_height = distance;
     running_sum = distance * N_measurements;
-    for(int i; i<N_measurements; i++){
+    for(int i=0; i<N_measurements; i++){
       last_N_measurements[i] = distance;
     }
     last_measurement_index = 0;
@@ -483,9 +543,11 @@ void loop(void)
     //String stringaDifference = String(difference); //+ stringaZona + String(zona) + "\t" + String(PathTrack[0]) + String(PathTrack[1]) + String(PathTrack[2]);
     // stringaDifference.toCharArray(messageArray, stringaDifference.length() +1);
     if (difference  >=3 || difference <= -3){
-      difference = min(max(difference, -20.0f), 20.0f);
-      lastChangeValue = difference / 2;  // Store the change value
-      client.publish(mqtt_serial_publish_brighness_change_ch, String(lastChangeValue).c_str());
+      if (armed) {  // Only publish if armed is true
+        difference = min(max(difference, -20.0f), 20.0f);
+        lastChangeValue = difference / 2;  // Store the change value
+        client.publish(mqtt_serial_publish_brighness_change_ch, String(lastChangeValue).c_str());
+      }
     }
     // client.publish(mqtt_serial_publish_brighness_change_ch, "Ciao");
     last_height = current_height;
