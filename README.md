@@ -15,17 +15,33 @@ AirDimmer transforms the space above it into a seamless dimming surface.
 
 ---
 
-##  Features
+## ✨ Features
 
-###  Proximity-Based Precision
-*   **Custom Thresholds**: Configure exact upper and lower boundaries to match your installation (e.g., under a cabinet or next to a bed).
+### 🎯 Proximity-Based Precision
+*   **Safety Thresholds**: Configure exact boundaries to ensure reliable detection:
+    *   **Upper Margin**: Avoids the "dead zone" extremely close to the sensor where ToF precision is reduced.
+    *   **Lower Margin**: Distinguishes your hand from the mounting surface (e.g., a table or wall) to prevent false triggers.
 *   **Sensitivity Control**: Adjust the response scaling (1x, 2x, or 3x divider) to fine-tune how much hand movement is required for dimming.
 *   **Persistent Calibration**: Self-calibrates to the mounting surface on boot, ensuring reliable performance in different environments.
 
-### Seamless Integration
+### 🔌 Seamless Integration
 *   **MQTT-Native**: Works out of the box with Home Assistant, Node-RED, and other MQTT brokers.
 *   **Armed Safety**: Explicit "Armed" toggle to enable/disable light control while keeping the sensor active for monitoring.
 *   **Hostname Discovery**: Reachable anywhere on your network at `http://airdimmer-(suffix).local`.
+
+---
+
+## 📡 MQTT Topic Structure
+
+AirDimmer uses a structured MQTT hierarchy. The `(suffix)` defaults to `setup` until changed.
+
+| Topic | Direction | Description |
+|---|---|---|
+| `AirDimmer/(suffix)/brightness_change` | **Publish** | Sends the relative change (e.g., `-5.5`, `+12.0`) to adjust light intensity. |
+| `AirDimmer/(suffix)/distance` | **Publish** | Sends raw distance measurements (in cm) when enabled in settings. |
+| `AirDimmer/(suffix)/receiver` | **Subscribe** | Listens for commands (`threshold_calibration`) or brightness sync (values `0-255`). |
+
+---
 
 ### 📱 Configuration Dashboard
 While designed for hands-free use, AirDimmer includes a Web Suite for setup:
@@ -43,7 +59,7 @@ While designed for hands-free use, AirDimmer includes a Web Suite for setup:
 
 ---
 
-##  Getting Started
+## 🚀 Getting Started
 1.  Configure your WiFi and MQTT credentials in `network_information.h`.
 2.  Flash the device via USB or OTA.
 3.  Navigate to `http://airdimmer-setup.local` to begin calibration and setup.
