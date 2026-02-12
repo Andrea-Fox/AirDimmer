@@ -114,6 +114,20 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     }
     input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2); }
 
+    /* Segment Control for Sensitivity */
+    .segment-control {
+      display: flex; background: rgba(0,0,0,0.05); border-radius: 12px; padding: 4px; gap: 4px;
+    }
+    .segment-btn {
+      flex: 1; border: none; background: none; padding: 6px; border-radius: 8px;
+      font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-dim);
+      transition: 0.2s;
+    }
+    .segment-btn.active {
+      background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .segment-btn:hover:not(.active) { background: rgba(0,0,0,0.05); }
+
     .btn { 
       padding: 12px 20px; border-radius: 12px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
     }
@@ -178,17 +192,31 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     <h3 id="t-settings">Settings</h3>
     
     <div class="stat-row">
-      <span class="label" id="t-armed">Enable Control (Armed)</span>
+      <span class="label" id="t-armed">Enable Control Light</span>
       <label class="switch">
-        <input type="checkbox" id="toggle-armed" onclick="toggleArmed()">
+        <input type="checkbox" id="armed-chk" onchange="toggleArmed()">
         <span class="slider"></span>
       </label>
+    </div>
+
+    <!-- Sensitivity Setting -->
+    <div style="margin-top: 15px;">
+      <div class="stat-row" style="margin-bottom: 8px;">
+        <span class="label" id="t-sensitivity">Sensitivity</span>
+        <span class="value" id="sensitivity-val">1</span>
+      </div>
+      <div class="segment-control">
+        <button class="segment-btn active" id="s1" onclick="updateSensitivity(1)">1</button>
+        <button class="segment-btn" id="s2" onclick="updateSensitivity(2)">2</button>
+        <button class="segment-btn" id="s3" onclick="updateSensitivity(3)">3</button>
+      </div>
+      <p class="small-text" id="t-sens-help">1: High, 3: Low</p>
     </div>
 
     <div class="stat-row">
       <span class="label" id="t-update-raw">Update Raw Readings</span>
       <label class="switch">
-        <input type="checkbox" id="toggle-raw-measurements" onclick="toggleRawMeasurements()">
+        <input type="checkbox" id="raw-chk" onchange="toggleRawMeasurements()">
         <span class="slider"></span>
       </label>
     </div>
@@ -247,7 +275,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       lastChange: "Last Change Sent",
       brightness: "Brightness",
       settings: "Settings",
-      armed: "Enable Control (Armed)",
+      armed: "Enable Light Control",
       updateRaw: "Send updated measurements",
       upper: "Upper Threshold",
       lower: "Lower Threshold",
@@ -260,6 +288,8 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       waitMsg: "Saving and rebooting... Please wait.",
       github: "GitHub",
       credits: "Created by Andrea Fox",
+      sensitivity: "Sensitivity",
+      sensHelp: "1: High, 3: Low",
       langKey: "🇮🇹"
     },
     it: {
@@ -269,7 +299,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       lastChange: "Ultimo Cambio",
       brightness: "Luminosità",
       settings: "Impostazioni",
-      armed: "Abilita Controllo",
+      armed: "Abilita Controllo Luci",
       updateRaw: "Invia aggiornamenti letture",
       upper: "Soglia Superiore",
       lower: "Soglia Inferiore",
@@ -282,6 +312,8 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       waitMsg: "Salvataggio e riavvio... Attendere.",
       github: "GitHub",
       credits: "Creato da Andrea Fox",
+      sensitivity: "Sensibilità",
+      sensHelp: "1: Alta, 3: Bassa",
       langKey: "🇬🇧"
     }
   };
@@ -304,10 +336,17 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     document.getElementById('t-dev-help').innerText = t.devHelp;
     document.getElementById('t-github').innerText = t.github;
     document.getElementById('t-credits').innerText = t.credits;
+    document.getElementById('t-sensitivity').innerText = t.sensitivity;
+    document.getElementById('t-sens-help').innerText = t.sensHelp;
     document.getElementById('lang-toggle').innerText = t.langKey;
     
     document.body.setAttribute('data-theme', currentTheme);
     document.getElementById('theme-icon').innerText = currentTheme === 'light' ? '🌙' : '☀️';
+  }
+
+  function updateSensitivity(val) {
+    fetch('/update/sensitivity?val=' + val)
+      .then(r => { if(r.ok) showToast("Sensitivity updated: " + val); });
   }
 
   function toggleLanguage() {
@@ -353,6 +392,18 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     m.className = 'status-badge ' + (mqtt ? 'connected' : 'disconnected');
   }
 
+  // Helper to sync settings without disturbing user input
+  function syncSetting(id, value, type = 'text') {
+    const element = document.getElementById(id);
+    if (element && document.activeElement !== element) {
+      if (type === 'checkbox') {
+        element.checked = !!value;
+      } else {
+        element.value = value;
+      }
+    }
+  }
+
   async function updateLoop() {
     try {
       const resp = await fetch('/readData');
@@ -374,8 +425,14 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       }
 
       // Sync settings
-      document.getElementById('toggle-armed').checked = !!data.armed;
-      document.getElementById('toggle-raw-measurements').checked = !!data.update_raw_measurements;
+      syncSetting('armed-chk', data.armed, 'checkbox');
+      syncSetting('raw-chk', data.update_raw_measurements, 'checkbox');
+      
+      // Update sensitivity UI
+      document.getElementById('sensitivity-val').innerText = data.sensitivity;
+      [1,2,3].forEach(v => {
+        document.getElementById('s'+v).className = (data.sensitivity == v) ? 'segment-btn active' : 'segment-btn';
+      });
       
       if (document.activeElement !== document.getElementById('upper-threshold')) 
         document.getElementById('upper-threshold').value = data.upper_threshold.toFixed(2);

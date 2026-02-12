@@ -48,9 +48,10 @@ void updateFullHostname() {
 #define EEPROM_LOWER_THRESH_ADDR 12 // 4 bytes - float
 #define EEPROM_ARMED_ADDR 16       // 1 byte - bool
 #define EEPROM_UPDATE_RAW_ADDR 17  // 1 byte - bool
+#define EEPROM_SENSITIVITY_ADDR 18 // 1 byte - int (1, 2, 3)
 #define EEPROM_DEVICE_SUFFIX_ADDR 20 // 32 bytes - char array suffix
 
-#define EEPROM_MAGIC_NUMBER 0xAD13  // Updated magic number for new layout
+#define EEPROM_MAGIC_NUMBER 0xAD14  // Updated magic number for sensitivity feature
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -77,6 +78,7 @@ float initial_height = 0;
 float last_height = 0;
 float current_height = 0;
 float difference = 0;
+float sensitivity = 0;
 
 
 float lower_bound_threshold = 0.1;
@@ -176,6 +178,7 @@ void saveConfigToEEPROM() {
   EEPROM.writeFloat(EEPROM_LOWER_THRESH_ADDR, lower_bound_threshold);
   EEPROM.writeBool(EEPROM_ARMED_ADDR, armed);
   EEPROM.writeBool(EEPROM_UPDATE_RAW_ADDR, update_raw_measurements);
+  EEPROM.writeByte(EEPROM_SENSITIVITY_ADDR, (uint8_t)sensitivity);
   EEPROM.writeString(EEPROM_DEVICE_SUFFIX_ADDR, deviceSuffix);
   EEPROM.commit();
   Serial.println("Configuration saved to EEPROM");
@@ -190,6 +193,8 @@ void loadConfigFromEEPROM() {
     lower_bound_threshold = EEPROM.readFloat(EEPROM_LOWER_THRESH_ADDR);
     armed = EEPROM.readBool(EEPROM_ARMED_ADDR);
     update_raw_measurements = EEPROM.readBool(EEPROM_UPDATE_RAW_ADDR);
+    sensitivity = (int)EEPROM.readByte(EEPROM_SENSITIVITY_ADDR);
+    if (sensitivity < 1 || sensitivity > 3) sensitivity = 1;
     String storedSuffix = EEPROM.readString(EEPROM_DEVICE_SUFFIX_ADDR);
     if (storedSuffix.length() > 0) {
       strncpy(deviceSuffix, storedSuffix.c_str(), 31);
@@ -205,6 +210,7 @@ void loadConfigFromEEPROM() {
     lower_bound_threshold = 0.1;
     armed = true;
     update_raw_measurements = false;
+    sensitivity = 1; // 1 (high), 2 (medium), 3 (low)
     strncpy(deviceSuffix, "setup", 31);
     updateFullHostname();
     saveConfigToEEPROM();
@@ -346,6 +352,7 @@ void handleDataRequest() {
     json += "\"upper_threshold\":" + safeJsonFloat(upper_bound_threshold, 3) + ",";
     json += "\"lower_threshold\":" + safeJsonFloat(lower_bound_threshold, 3) + ",";
     json += "\"surface_distance\":" + safeJsonFloat(surface_distance, 1) + ",";
+    json += "\"sensitivity\":" + String(sensitivity) + ",";
     json += "\"device_suffix\":\"" + String(deviceSuffix) + "\",";
     json += "\"full_hostname\":\"" + String(fullHostname) + ".local\",";
     
@@ -376,6 +383,21 @@ void handleUpdateHostname() {
   }
 }
 
+
+void handleUpdateSensitivity() {
+  if (server.hasArg("val")) {
+    int val = server.arg("val").toInt();
+    if (val >= 1 && val <= 3) {
+      sensitivity = val;
+      saveConfigToEEPROM();
+      server.send(200, "text/plain", "OK");
+    } else {
+      server.send(400, "text/plain", "Invalid sensitivity");
+    }
+  } else {
+    server.send(400, "text/plain", "Missing val");
+  }
+}
 
 void setup(void){
   Wire.begin();
@@ -459,6 +481,7 @@ void setup(void){
   server.on("/toggle/rawMeasurements", handleToggleRawMeasurements);
   server.on("/calibrate/threshold", handleCalibrateThreshold);
   server.on("/update/thresholds", handleUpdateThresholds);
+  server.on("/update/sensitivity", handleUpdateSensitivity);
   server.on("/update/hostname", handleUpdateHostname);
   server.on("/readData", handleDataRequest);
 
@@ -581,7 +604,7 @@ void loop(void)
     if (difference  >=3 || difference <= -3){
       if (armed) {  // Only publish if armed is true
         difference = min(max(difference, -20.0f), 20.0f);
-        lastChangeValue = difference / 2;  // Store the change value
+        lastChangeValue = difference / (float)sensitivity;  // Sensitivity acts as a divider
         client.publish(mqtt_serial_publish_brighness_change_ch, String(lastChangeValue).c_str());
       }
     }
