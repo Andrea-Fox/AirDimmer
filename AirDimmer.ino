@@ -11,41 +11,46 @@
 #include <ArduinoOTA.h>
 #include <EEPROM.h>
 
-const char* devicename = "test"; // sets MQTT topics and hostname for ArduinoOTA
+char deviceSuffix[32] = "setup"; // Default suffix
+char fullHostname[64];
 
-
-//*******************************************************************************************************************
-char mqtt_serial_publish_distance_ch_cache[50];
-char mqtt_serial_receiver_ch_cache[50];
+char mqtt_serial_publish_distance_ch_cache[64];
+char mqtt_serial_receiver_ch_cache[64];
 char mqtt_serial_publish_measurements_cache[64];
 char mqtt_serial_publish_brightness_cache[64];
 
-int mqtt_distance = sprintf(mqtt_serial_publish_distance_ch_cache,"%s%s%s","AirDimmer/", devicename,"/distance");
-const PROGMEM char* mqtt_serial_publish_distance_ch = mqtt_serial_publish_distance_ch_cache;
-int mqtt_receiver = sprintf(mqtt_serial_receiver_ch_cache,"%s%s%s","AirDimmer/", devicename,"/receiver");
-const PROGMEM char* mqtt_serial_receiver_ch = mqtt_serial_receiver_ch_cache;
+const char* mqtt_serial_publish_distance_ch = mqtt_serial_publish_distance_ch_cache;
+const char* mqtt_serial_receiver_ch = mqtt_serial_receiver_ch_cache;
+const char* mqtt_serial_publish_measurements_ch = mqtt_serial_publish_measurements_cache;
+const char* mqtt_serial_publish_brighness_change_ch = mqtt_serial_publish_brightness_cache;
+
+void updateFullHostname() {
+  if (strlen(deviceSuffix) == 0 || strcmp(deviceSuffix, "none") == 0) {
+    snprintf(fullHostname, sizeof(fullHostname), "airdimmer");
+  } else {
+    snprintf(fullHostname, sizeof(fullHostname), "airdimmer-%s", deviceSuffix);
+  }
+  
+  // MQTT topics use ONLY the suffix as requested
+  snprintf(mqtt_serial_publish_distance_ch_cache, 64, "AirDimmer/%s/distance", deviceSuffix);
+  snprintf(mqtt_serial_receiver_ch_cache, 64, "AirDimmer/%s/receiver", deviceSuffix);
+  snprintf(mqtt_serial_publish_measurements_cache, 64, "AirDimmer/%s/publish_measurements", deviceSuffix);
+  snprintf(mqtt_serial_publish_brightness_cache, 64, "AirDimmer/%s/brightness_change", deviceSuffix);
+}
 
 
-
-int mqtt_publish_measurements = sprintf(mqtt_serial_publish_measurements_cache,"%s%s%s","AirDimmer/", devicename,"/publish_measurements");
-const PROGMEM char* mqtt_serial_publish_measurements_ch = mqtt_serial_publish_measurements_cache;
-
-
-int mqtt_publish_brightness_change = sprintf(mqtt_serial_publish_brightness_cache,"%s%s%s","AirDimmer/", devicename,"/brightness_change");
-const PROGMEM char* mqtt_serial_publish_brighness_change_ch = mqtt_serial_publish_brightness_cache;
-
-
-#define EEPROM_SIZE 64  // Increased to store all configuration
+#define EEPROM_SIZE 128  // Increased to store hostname suffix
 
 // EEPROM Memory Map
-#define EEPROM_MAGIC_ADDR 0        // 4 bytes - magic number to detect first boot
-#define EEPROM_SURFACE_DIST_ADDR 4 // 4 bytes - float surface_distance
-#define EEPROM_UPPER_THRESH_ADDR 8 // 4 bytes - float upper_bound_threshold
-#define EEPROM_LOWER_THRESH_ADDR 12 // 4 bytes - float lower_bound_threshold
-#define EEPROM_ARMED_ADDR 16       // 1 byte - bool armed
-#define EEPROM_UPDATE_RAW_ADDR 17  // 1 byte - bool update_raw_measurements
+#define EEPROM_MAGIC_ADDR 0        // 4 bytes - magic number
+#define EEPROM_SURFACE_DIST_ADDR 4 // 4 bytes - float
+#define EEPROM_UPPER_THRESH_ADDR 8 // 4 bytes - float
+#define EEPROM_LOWER_THRESH_ADDR 12 // 4 bytes - float
+#define EEPROM_ARMED_ADDR 16       // 1 byte - bool
+#define EEPROM_UPDATE_RAW_ADDR 17  // 1 byte - bool
+#define EEPROM_DEVICE_SUFFIX_ADDR 20 // 32 bytes - char array suffix
 
-#define EEPROM_MAGIC_NUMBER 0xAD12  // Magic number to detect if EEPROM has been initialized
+#define EEPROM_MAGIC_NUMBER 0xAD13  // Updated magic number for new layout
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -171,6 +176,7 @@ void saveConfigToEEPROM() {
   EEPROM.writeFloat(EEPROM_LOWER_THRESH_ADDR, lower_bound_threshold);
   EEPROM.writeBool(EEPROM_ARMED_ADDR, armed);
   EEPROM.writeBool(EEPROM_UPDATE_RAW_ADDR, update_raw_measurements);
+  EEPROM.writeString(EEPROM_DEVICE_SUFFIX_ADDR, deviceSuffix);
   EEPROM.commit();
   Serial.println("Configuration saved to EEPROM");
 }
@@ -179,27 +185,28 @@ void loadConfigFromEEPROM() {
   uint32_t magic = EEPROM.readUInt(EEPROM_MAGIC_ADDR);
   
   if (magic == EEPROM_MAGIC_NUMBER) {
-    // Valid configuration exists, load it
     surface_distance = EEPROM.readFloat(EEPROM_SURFACE_DIST_ADDR);
     upper_bound_threshold = EEPROM.readFloat(EEPROM_UPPER_THRESH_ADDR);
     lower_bound_threshold = EEPROM.readFloat(EEPROM_LOWER_THRESH_ADDR);
     armed = EEPROM.readBool(EEPROM_ARMED_ADDR);
     update_raw_measurements = EEPROM.readBool(EEPROM_UPDATE_RAW_ADDR);
+    String storedSuffix = EEPROM.readString(EEPROM_DEVICE_SUFFIX_ADDR);
+    if (storedSuffix.length() > 0) {
+      strncpy(deviceSuffix, storedSuffix.c_str(), 31);
+    }
     
+    updateFullHostname();
     Serial.println("Configuration loaded from EEPROM:");
-    Serial.print("  Surface distance: "); Serial.println(surface_distance);
-    Serial.print("  Upper threshold: "); Serial.println(upper_bound_threshold);
-    Serial.print("  Lower threshold: "); Serial.println(lower_bound_threshold);
-    Serial.print("  Armed: "); Serial.println(armed ? "true" : "false");
-    Serial.print("  Update raw: "); Serial.println(update_raw_measurements ? "true" : "false");
+    Serial.print("  Hostname: "); Serial.println(fullHostname);
   } else {
-    // First boot or invalid data, use defaults and save them
     Serial.println("No valid configuration found, using defaults");
-    surface_distance = 100.0;  // Default value, will be calibrated
+    surface_distance = 100.0;
     upper_bound_threshold = 0.9;
     lower_bound_threshold = 0.1;
-    armed = true;  // Default to true so it works out of the box
+    armed = true;
     update_raw_measurements = false;
+    strncpy(deviceSuffix, "setup", 31);
+    updateFullHostname();
     saveConfigToEEPROM();
   }
 }
@@ -339,6 +346,8 @@ void handleDataRequest() {
     json += "\"upper_threshold\":" + safeJsonFloat(upper_bound_threshold, 3) + ",";
     json += "\"lower_threshold\":" + safeJsonFloat(lower_bound_threshold, 3) + ",";
     json += "\"surface_distance\":" + safeJsonFloat(surface_distance, 1) + ",";
+    json += "\"device_suffix\":\"" + String(deviceSuffix) + "\",";
+    json += "\"full_hostname\":\"" + String(fullHostname) + ".local\",";
     
     // Connectivity - Use 1/0 for absolute robustness in JS
     json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? 1 : 0) + ",";
@@ -349,6 +358,24 @@ void handleDataRequest() {
     server.send(200, "application/json", json);
 }
 
+void handleUpdateHostname() {
+  if (server.hasArg("suffix")) {
+    String suffix = server.arg("suffix");
+    suffix.trim();
+    if (suffix.length() > 0 && suffix.length() < 31) {
+      strncpy(deviceSuffix, suffix.c_str(), 31);
+      saveConfigToEEPROM();
+      server.send(200, "text/plain", "OK. Rebooting...");
+      delay(1000);
+      ESP.restart();
+    } else {
+      server.send(400, "text/plain", "Invalid suffix length");
+    }
+  } else {
+    server.send(400, "text/plain", "Missing suffix parameter");
+  }
+}
+
 
 void setup(void){
   Wire.begin();
@@ -356,6 +383,20 @@ void setup(void){
   EEPROM.begin(EEPROM_SIZE);
   
   Serial.begin(115200);
+
+  // Load configuration from EEPROM immediately after EEPROM.begin
+  loadConfigFromEEPROM();
+  
+  // If surface_distance is invalid or this is first boot, calibrate
+  if (surface_distance <= 0 || surface_distance > 400) {
+    Serial.println("Invalid surface distance, performing calibration...");
+    surface_distance = threshold_calibration();
+    saveConfigToEEPROM();
+  }
+  
+  Serial.print("Surface distance: ");
+  Serial.println(surface_distance);
+
 
   if (distanceSensor.init() == false)
     Serial.println("Sensor online!");
@@ -368,7 +409,6 @@ void setup(void){
   client.setCallback(callback);
   delay(1000);
   // reconnect();  
-  /*
   ArduinoOTA
     .onStart([]() {
       String type;
@@ -377,7 +417,6 @@ void setup(void){
       else // U_SPIFFS
         type = "filesystem";
 
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
     })
     .onEnd([]() {
@@ -394,9 +433,16 @@ void setup(void){
       else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
       else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
-  ArduinoOTA.setHostname(devicename);
+  
+  ArduinoOTA.setHostname(fullHostname);
+  ArduinoOTA.setPassword("admin"); // Security: Add OTA password
   ArduinoOTA.begin();
-*/
+
+  if (MDNS.begin(fullHostname)) {
+    Serial.println("MDNS responder started");
+    MDNS.addService("http", "tcp", 80);
+  }
+
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -412,26 +458,15 @@ void setup(void){
   server.on("/toggle/rawMeasurements", handleToggleRawMeasurements);
   server.on("/calibrate/threshold", handleCalibrateThreshold);
   server.on("/update/thresholds", handleUpdateThresholds);
+  server.on("/update/hostname", handleUpdateHostname);
   server.on("/readData", handleDataRequest);
 
   server.begin();
   Serial.println("Web server started");
 
-
-
-
-  // Load configuration from EEPROM
-  loadConfigFromEEPROM();
+  saveConfigToEEPROM();
   
-  // If surface_distance is invalid or this is first boot, calibrate
-  if (surface_distance <= 0 || surface_distance > 400) {
-    Serial.println("Invalid surface distance, performing calibration...");
-    surface_distance = threshold_calibration();
-    saveConfigToEEPROM();
-  }
-  
-  Serial.print("Surface distance: ");
-  Serial.println(surface_distance);
+
 
   // initialization of the last_N_measurement vector
   for(int i=0; i<N_measurements; i++){  
@@ -442,7 +477,7 @@ void setup(void){
 }
 
 
-bool detect_hand(int last_measurements[N_measurements], bool hand_detected){
+bool detect_hand(int last_measurements[], bool hand_detected){
 // bool detect_hand(int last_measurement, bool hand_detected)
   int hand_in_sight = 0;
   for (int i=0; i<N_measurements; i++){
@@ -470,7 +505,7 @@ bool detect_hand(int last_measurements[N_measurements], bool hand_detected){
 
 void loop(void)
 {
-  // ArduinoOTA.handle();
+  ArduinoOTA.handle();
   server.handleClient();
 
    

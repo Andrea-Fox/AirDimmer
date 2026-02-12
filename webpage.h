@@ -115,6 +115,18 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
       <p style="margin: 5px 0;"><span class="label">Surface Distance:</span> <span id="surface-dist" class="value">--</span> cm</p>
     </div>
+
+    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+      <h3>Device Name</h3>
+      <p style="font-size: 12px; color: #666; text-align: left;">Sets the address (e.g. <b>airdimmer-<span id="display-suffix">setup</span>.local</b>) and MQTT topics. Device will reboot.</p>
+      <div class="threshold-row">
+        <span class="label">airdimmer-</span>
+        <div style="display: flex; gap: 5px;">
+          <input type="text" id="device-suffix" style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;" maxlength="30">
+          <button onclick="updateHostname()" class="update-btn" style="background-color: #f44336; margin-left: 0;">Save</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="section">
@@ -141,6 +153,20 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       // Update will happen on next poll
     } catch (e) {
       console.error("Error toggling raw measurements");
+    }
+  }
+
+  async function updateHostname() {
+    const suffix = document.getElementById('device-suffix').value;
+    if (!suffix) return;
+    
+    if (confirm(`Device will rename to airdimmer-${suffix}.local and reboot. Continue?`)) {
+      try {
+        await fetch(`/update/hostname?suffix=${suffix}`);
+        alert("Settings saved. Device is rebooting. Please wait 10 seconds and then try to reach it at the new address.");
+      } catch (e) {
+        console.error("Error updating hostname");
+      }
     }
   }
 
@@ -277,6 +303,20 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       // Update surface distance display
       if (data.surface_distance !== undefined) {
         document.getElementById('surface-dist').innerText = parseFloat(data.surface_distance).toFixed(1);
+      }
+      
+      // Update hostname display
+      if (data.device_suffix !== undefined) {
+        document.getElementById('display-suffix').innerText = data.device_suffix;
+        // Only update input if user isn't typing
+        if (document.activeElement !== document.getElementById('device-suffix')) {
+          document.getElementById('device-suffix').value = data.device_suffix;
+        }
+      }
+      
+      // Update title with hostname
+      if (data.full_hostname) {
+        document.title = data.full_hostname + " Dashboard";
       }
       // 4. Update connection status
       const wifiConnected = (data.wifi_connected == 1 || data.wifi_connected === true || data.wifi_connected === "true");
