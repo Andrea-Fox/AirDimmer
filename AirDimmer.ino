@@ -78,7 +78,7 @@ float initial_height = 0;
 float last_height = 0;
 float current_height = 0;
 float difference = 0;
-float sensitivity = 0;
+int sensitivity = 1;
 
 
 float lower_bound_threshold = 0.1;
