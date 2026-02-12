@@ -63,9 +63,3 @@ While designed for hands-free use, AirDimmer includes a Web Suite for setup:
 1.  Configure your WiFi and MQTT credentials in `network_information.h`.
 2.  Flash the device via USB or OTA.
 3.  Navigate to `http://airdimmer-setup.local` to begin calibration and setup.
-
----
-
-## 👨‍💻 Author
-Created by **Andrea Fox**  
-[GitHub Repository](https://github.com/Andrea-Fox/AirDimmer)
