@@ -7,7 +7,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AirDimmer Dashboard</title>
+  <title>AirDimmer Dashboard v1.1</title>
   <style>
     :root {
       /* Theme: Light (Default) */
@@ -199,6 +199,14 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       </label>
     </div>
 
+    <div class="stat-row">
+      <span class="label" id="t-invert">Invert Direction</span>
+      <label class="switch">
+        <input type="checkbox" id="invert-chk" onchange="toggleInvert()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
     <!-- Sensitivity Setting -->
     <div style="margin-top: 15px;">
       <div class="stat-row" style="margin-bottom: 8px;">
@@ -276,6 +284,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       brightness: "Brightness",
       settings: "Settings",
       armed: "Enable Light Control",
+      invert: "Invert Direction",
       updateRaw: "Send updated measurements",
       upper: "Upper Threshold",
       lower: "Lower Threshold",
@@ -300,6 +309,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
       brightness: "Luminosità",
       settings: "Impostazioni",
       armed: "Abilita Controllo Luci",
+      invert: "Inverti Direzione",
       updateRaw: "Invia aggiornamenti letture",
       upper: "Soglia Superiore",
       lower: "Soglia Inferiore",
@@ -327,6 +337,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
     document.getElementById('t-brightness').innerText = t.brightness;
     document.getElementById('t-settings').innerText = t.settings;
     document.getElementById('t-armed').innerText = t.armed;
+    document.getElementById('t-invert').innerText = t.invert;
     document.getElementById('t-update-raw').innerText = t.updateRaw;
     document.getElementById('t-upper').innerText = t.upper;
     document.getElementById('t-lower').innerText = t.lower;
@@ -362,6 +373,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
   }
 
   async function toggleArmed() { try { await fetch('/toggle/armed'); } catch (e) {} }
+  async function toggleInvert() { try { await fetch('/toggle/invert'); } catch (e) {} }
   async function toggleRawMeasurements() { try { await fetch('/toggle/rawMeasurements'); } catch (e) {} }
 
   async function calibrateThreshold() {
@@ -426,6 +438,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 
       // Sync settings
       syncSetting('armed-chk', data.armed, 'checkbox');
+      syncSetting('invert-chk', data.invert_brightness, 'checkbox');
       syncSetting('raw-chk', data.update_raw_measurements, 'checkbox');
       
       // Update sensitivity UI

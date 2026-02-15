@@ -1,4 +1,4 @@
-# 🧤 AirDimmer v1.0
+# 🧤 AirDimmer v1.1
 
 AirDimmer is an intuitive, mid-air gesture controller for smart home lighting. Using a **VL53L1X Time-of-Flight sensor** and an **ESP32**, it enables precision brightness control through simple hand movements—eliminating the need for physical switches or buttons.
 
@@ -18,10 +18,11 @@ AirDimmer transforms the space above it into a seamless dimming surface.
 ## ✨ Features
 
 ### 🎯 Proximity-Based Precision
-*   **Safety Thresholds**: Configure exact boundaries to ensure reliable detection:
-    *   **Upper Margin**: Avoids the "dead zone" extremely close to the sensor where ToF precision is reduced.
-    *   **Lower Margin**: Distinguishes your hand from the mounting surface (e.g., a table or wall) to prevent false triggers.
-*   **Sensitivity Control**: Adjust the response scaling (1x, 2x, or 3x divider) to fine-tune how much hand movement is required for dimming.
+*   **Safety Thresholds**: Configure exact boundaries to ensure reliable detection.
+*   **Invertible Control**: Choose the direction of control:
+    *   **Standard**: Closer = Brighter, Further = Dimmer.
+    *   **Inverted**: Further = Brighter, Closer = Dimmer.
+*   **Sensitivity Control**: Adjust the response scaling (1x, 2x, or 3x divider).
 *   **Persistent Calibration**: Self-calibrates to the mounting surface on boot, ensuring reliable performance in different environments.
 
 ### 🔌 Seamless Integration

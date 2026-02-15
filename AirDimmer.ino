@@ -49,14 +49,15 @@ void updateFullHostname() {
 #define EEPROM_ARMED_ADDR 16       // 1 byte - bool
 #define EEPROM_UPDATE_RAW_ADDR 17  // 1 byte - bool
 #define EEPROM_SENSITIVITY_ADDR 18 // 1 byte - int (1, 2, 3)
+#define EEPROM_INVERT_ADDR 19      // 1 byte - bool (inverted control)
 #define EEPROM_DEVICE_SUFFIX_ADDR 20 // 32 bytes - char array suffix
 
-#define EEPROM_MAGIC_NUMBER 0xAD14  // Updated magic number for sensitivity feature
+#define EEPROM_MAGIC_NUMBER 0xAD15  // Updated magic for inversion feature
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-
+bool invertBrightness = false; // Add inversion flag
 char messageArray[50];
 //Optional interrupt and shutdown pins
 #define SHUTDOWN_PIN 2    
@@ -179,6 +180,7 @@ void saveConfigToEEPROM() {
   EEPROM.writeBool(EEPROM_ARMED_ADDR, armed);
   EEPROM.writeBool(EEPROM_UPDATE_RAW_ADDR, update_raw_measurements);
   EEPROM.writeByte(EEPROM_SENSITIVITY_ADDR, (uint8_t)sensitivity);
+  EEPROM.writeBool(EEPROM_INVERT_ADDR, invertBrightness);
   EEPROM.writeString(EEPROM_DEVICE_SUFFIX_ADDR, deviceSuffix);
   EEPROM.commit();
   Serial.println("Configuration saved to EEPROM");
@@ -195,6 +197,7 @@ void loadConfigFromEEPROM() {
     update_raw_measurements = EEPROM.readBool(EEPROM_UPDATE_RAW_ADDR);
     sensitivity = (int)EEPROM.readByte(EEPROM_SENSITIVITY_ADDR);
     if (sensitivity < 1 || sensitivity > 3) sensitivity = 1;
+    invertBrightness = EEPROM.readBool(EEPROM_INVERT_ADDR);
     String storedSuffix = EEPROM.readString(EEPROM_DEVICE_SUFFIX_ADDR);
     if (storedSuffix.length() > 0) {
       strncpy(deviceSuffix, storedSuffix.c_str(), 31);
@@ -211,6 +214,7 @@ void loadConfigFromEEPROM() {
     armed = true;
     update_raw_measurements = false;
     sensitivity = 1; // 1 (high), 2 (medium), 3 (low)
+    invertBrightness = false;
     strncpy(deviceSuffix, "setup", 31);
     updateFullHostname();
     saveConfigToEEPROM();
@@ -353,6 +357,7 @@ void handleDataRequest() {
     json += "\"lower_threshold\":" + safeJsonFloat(lower_bound_threshold, 3) + ",";
     json += "\"surface_distance\":" + safeJsonFloat(surface_distance, 1) + ",";
     json += "\"sensitivity\":" + String(sensitivity) + ",";
+    json += "\"invert_brightness\":" + String(invertBrightness ? "true" : "false") + ",";
     json += "\"device_suffix\":\"" + String(deviceSuffix) + "\",";
     json += "\"full_hostname\":\"" + String(fullHostname) + ".local\",";
     
@@ -397,6 +402,12 @@ void handleUpdateSensitivity() {
   } else {
     server.send(400, "text/plain", "Missing val");
   }
+}
+
+void handleToggleInvert() {
+  invertBrightness = !invertBrightness;
+  saveConfigToEEPROM();
+  server.send(200, "text/plain", "OK");
 }
 
 void setup(void){
@@ -483,6 +494,7 @@ void setup(void){
   server.on("/update/thresholds", handleUpdateThresholds);
   server.on("/update/sensitivity", handleUpdateSensitivity);
   server.on("/update/hostname", handleUpdateHostname);
+  server.on("/toggle/invert", handleToggleInvert);
   server.on("/readData", handleDataRequest);
 
   server.begin();
@@ -604,6 +616,9 @@ void loop(void)
     if (difference  >=3 || difference <= -3){
       if (armed) {  // Only publish if armed is true
         difference = min(max(difference, -20.0f), 20.0f);
+        if (invertBrightness) {
+          difference = -difference; // Flip the direction if inverted
+        }
         lastChangeValue = difference / (float)sensitivity;  // Sensitivity acts as a divider
         client.publish(mqtt_serial_publish_brighness_change_ch, String(lastChangeValue).c_str());
       }
