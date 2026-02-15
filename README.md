@@ -147,8 +147,28 @@ While designed for hands-free use, AirDimmer includes a Web Suite for setup:
 
 ---
 
+## 🔍 Troubleshooting
+
+*   **Sensor not found**: Check your I2C wiring (SDA/SCL). Ensure the sensor is powered (3.3V/VIN).
+*   **MQTT Disconnected**: Verify your credentials in `network_information.h` and ensure your broker is reachable from the ESP32's IP.
+*   **No Dimming**: Check if the device is "Armed" via the web dashboard.
+
+---
+
+## ⚠️ Disclaimer
+
+This is a **v1.0 experimental project**. While functional, it is provided "as is" without warranty of any kind. Always maintain physical access to your light switches and use this project at your own risk.
+
+---
+
 ## Contributing
 
 Feel free to fork the repo and create a pull request if you have improvements. You can also open an issue for bugs or feature requests. 
 
-3D printed case designs (STL/CAD files) are particularly helpful to the project.
+**3D printed case designs** (STL/CAD files) are particularly helpful to the project.
+
+---
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
