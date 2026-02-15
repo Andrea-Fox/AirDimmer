@@ -34,60 +34,11 @@ AirDimmer transforms the space above it into a seamless dimming surface.
 
 ---
 
-## 📡 MQTT Topic Structure
+## � Getting Started
 
-AirDimmer uses a structured MQTT hierarchy. The `(suffix)` defaults to `setup` until changed.
-
-| Topic                                  | Direction     | Description                                                                         |
-| -------------------------------------- | ------------- | ----------------------------------------------------------------------------------- |
-| `AirDimmer/(suffix)/brightness_change` | **Publish**   | Sends the relative change (e.g., `-5.5`, `+12.0`) to adjust light intensity.        |
-| `AirDimmer/(suffix)/distance`          | **Publish**   | Sends raw distance measurements (in cm) when enabled in settings.                   |
-| `AirDimmer/(suffix)/receiver`          | **Subscribe** | Listens for commands (`threshold_calibration`) or brightness sync (values `0-255`). |
- 
----
- 
-## 🏠 Home Assistant Integration
-
-To control your lights, you can use the following Home Assistant automation. It listens for brightness changes and syncs the current light state back to AirDimmer.
-
-```yaml
-trigger:
-  - platform: mqtt
-    topic: "AirDimmer/setup/brightness_change" # <--- Change 'setup' to your device suffix
-action:
-  - service: light.turn_on
-    target:
-      entity_id: light.test_airdimmer # <--- Your light entity ID
-    data:
-      brightness_step_pct: "{{ trigger.payload | float }}"
-  - service: mqtt.publish
-    data:
-      topic: "AirDimmer/setup/receiver" # <--- Change 'setup' to your device suffix
-      payload: "{{ state_attr('light.test_airdimmer', 'brightness') }}"
-```
-
-> [!IMPORTANT]
-> *   **`light.test_airdimmer`**: Replace this with the entity ID of the light you want to control.
-> *   **MQTT Topic**: Ensure the `(suffix)` (default is `setup`) in the topic matches the hostname suffix configured in your AirDimmer settings.
-
----
-
-### 📱 Configuration Dashboard
-
-While designed for hands-free use, AirDimmer includes a Web Suite for setup:
-
-* **Responsive Control**: Full setup via any phone or desktop browser.
-* **Themes**: Light and sophisticated Dark Gray modes.
-* **Localization**: Native English (UK) and Italian support.
-
----
-
-## 🛠️ Tech Stack
-
-* **Microcontroller**: ESP32
-* **Sensor**: ST VL53L1X (Time-of-Flight)
-* **Connectivity**: WiFi, MQTT, mDNS, ArduinoOTA
-* **Persistence**: EEPROM (Store thresholds, sensitivity, and naming)
+1. Configure your WiFi and MQTT credentials in `network_information.h`.
+2. Flash the device via USB or OTA.
+3. Navigate to `http://airdimmer-setup.local` to begin calibration and setup.
 
 ---
 
@@ -135,8 +86,67 @@ For 5V boards like the Arduino Uno, Leonardo, or Mega:
 > [!IMPORTANT]
 > To use MQTT and Web features, you **must** use a WiFi-enabled board like the ESP32 or ESP8266.
 
-## 🚀 Getting Started
+---
 
-1. Configure your WiFi and MQTT credentials in `network_information.h`.
-2. Flash the device via USB or OTA.
-3. Navigate to `http://airdimmer-setup.local` to begin calibration and setup.
+## 🏠 Home Assistant Integration
+
+To control your lights, you can use the following Home Assistant automation. It listens for brightness changes and syncs the current light state back to AirDimmer.
+
+```yaml
+trigger:
+  - platform: mqtt
+    topic: "AirDimmer/setup/brightness_change" # <--- Change 'setup' to your device suffix
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.test_airdimmer # <--- Your light entity ID
+    data:
+      brightness_step_pct: "{{ trigger.payload | float }}"
+  - service: mqtt.publish
+    data:
+      topic: "AirDimmer/setup/receiver" # <--- Change 'setup' to your device suffix
+      payload: "{{ state_attr('light.test_airdimmer', 'brightness') }}"
+```
+
+> [!IMPORTANT]
+> *   **`light.test_airdimmer`**: Replace this with the entity ID of the light you want to control.
+> *   **MQTT Topic**: Ensure the `(suffix)` (default is `setup`) in the topic matches the hostname suffix configured in your AirDimmer settings.
+
+---
+
+## � MQTT Topic Structure
+
+AirDimmer uses a structured MQTT hierarchy. The `(suffix)` defaults to `setup` until changed.
+
+| Topic                                  | Direction     | Description                                                                         |
+| -------------------------------------- | ------------- | ----------------------------------------------------------------------------------- |
+| `AirDimmer/(suffix)/brightness_change` | **Publish**   | Sends the relative change (e.g., `-5.5`, `+12.0`) to adjust light intensity.        |
+| `AirDimmer/(suffix)/distance`          | **Publish**   | Sends raw distance measurements (in cm) when enabled in settings.                   |
+| `AirDimmer/(suffix)/receiver`          | **Subscribe** | Listens for commands (`threshold_calibration`) or brightness sync (values `0-255`). |
+
+---
+
+## 📱 Configuration Dashboard
+
+While designed for hands-free use, AirDimmer includes a Web Suite for setup:
+
+* **Responsive Control**: Full setup via any phone or desktop browser.
+* **Themes**: Light and sophisticated Dark Gray modes.
+* **Localization**: Native English (UK) and Italian support.
+
+---
+
+## ⚙️ Tech Stack
+
+* **Microcontroller**: ESP32
+* **Sensor**: ST VL53L1X (Time-of-Flight)
+* **Connectivity**: WiFi, MQTT, mDNS, ArduinoOTA
+* **Persistence**: EEPROM (Store thresholds, sensitivity, and naming)
+
+---
+
+## Contributing
+
+Feel free to fork the repo and create a pull request if you have improvements. You can also open an issue for bugs or feature requests. 
+
+**3D printed case designs** (STL/CAD files) are particularly helpful to the project.
