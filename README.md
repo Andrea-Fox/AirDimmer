@@ -43,6 +43,32 @@ AirDimmer uses a structured MQTT hierarchy. The `(suffix)` defaults to `setup` u
 | `AirDimmer/(suffix)/brightness_change` | **Publish**   | Sends the relative change (e.g., `-5.5`, `+12.0`) to adjust light intensity.        |
 | `AirDimmer/(suffix)/distance`          | **Publish**   | Sends raw distance measurements (in cm) when enabled in settings.                   |
 | `AirDimmer/(suffix)/receiver`          | **Subscribe** | Listens for commands (`threshold_calibration`) or brightness sync (values `0-255`). |
+ 
+---
+ 
+## 🏠 Home Assistant Integration
+
+To control your lights, you can use the following Home Assistant automation. It listens for brightness changes and syncs the current light state back to AirDimmer.
+
+```yaml
+trigger:
+  - platform: mqtt
+    topic: "AirDimmer/setup/brightness_change" # <--- Change 'setup' to your device suffix
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.test_airdimmer # <--- Your light entity ID
+    data:
+      brightness_step_pct: "{{ trigger.payload | float }}"
+  - service: mqtt.publish
+    data:
+      topic: "AirDimmer/setup/receiver" # <--- Change 'setup' to your device suffix
+      payload: "{{ state_attr('light.test_airdimmer', 'brightness') }}"
+```
+
+> [!IMPORTANT]
+> *   **`light.test_airdimmer`**: Replace this with the entity ID of the light you want to control.
+> *   **MQTT Topic**: Ensure the `(suffix)` (default is `setup`) in the topic matches the hostname suffix configured in your AirDimmer settings.
 
 ---
 
