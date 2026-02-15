@@ -2,6 +2,8 @@
 
 AirDimmer is an intuitive, mid-air gesture controller for smart home lighting. Using a **VL53L1X Time-of-Flight sensor** and an **ESP32**, it enables precision brightness control through simple hand movements—eliminating the need for physical switches or buttons.
 
+![AirDimmer in action](airDimmer.gif)
+
 ---
 
 ## ✋ Magic at your Fingertips
@@ -149,4 +151,4 @@ While designed for hands-free use, AirDimmer includes a Web Suite for setup:
 
 Feel free to fork the repo and create a pull request if you have improvements. You can also open an issue for bugs or feature requests. 
 
-**3D printed case designs** (STL/CAD files) are particularly helpful to the project.
+3D printed case designs (STL/CAD files) are particularly helpful to the project.
