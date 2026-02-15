@@ -1,4 +1,8 @@
 // credentials.h
+
+
+// IMPORTANT: change the name of the file to network_information.h
+
 #ifndef CREDENTIALS_H
 #define CREDENTIALS_H
 
