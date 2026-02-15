@@ -7,7 +7,7 @@ const char webpageHTML[] PROGMEM = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AirDimmer Dashboard v1.1</title>
+  <title>AirDimmer Dashboard</title>
   <style>
     :root {
       /* Theme: Light (Default) */
